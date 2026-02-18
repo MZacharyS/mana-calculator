@@ -48,3 +48,6 @@ data/*.~lock.*
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Internal ops documents — keep off public repos
+STATUS.md

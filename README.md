@@ -27,14 +27,6 @@ App runs at `http://localhost:8501`.
 
 ---
 
-## Deployed Instance
-
-Live at **https://test.lairallc.com** — hosted on ranseras1 via Docker + Cloudflare Tunnel.
-
-See [STATUS.md](STATUS.md) for full deployment details and ops commands.
-
----
-
 ## Features
 
 | Feature | Status |

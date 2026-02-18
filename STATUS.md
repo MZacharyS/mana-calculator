@@ -42,41 +42,28 @@ A Streamlit web app that lets Antarok RPG players calculate mana pool totals, lo
 
 ## Deployment
 
-- **Host:** ranseras1 (`192.168.12.65`)
-- **Deploy path:** `~/antarok-mana-calculator/`
-- **URL:** `https://test.lairallc.com`
 - **Stack:** Docker Compose — two containers on a shared bridge network
 
 | Container | Image | Role |
 |---|---|---|
 | `antarok-mana-app` | Built from `Dockerfile` (python:3.11-slim) | Streamlit app on internal port 8501 |
-| `antarok-cloudflared` | `cloudflare/cloudflared:latest` | Tunnel to Cloudflare edge; routes `test.lairallc.com → app:8501` |
-
-- **Tunnel ID:** `2f8e5f6f-2cba-49dc-8521-63d70609706c` (tunnel name: `antarok-mana`)
-- **Credentials:** `~/.cloudflared/2f8e5f6f-2cba-49dc-8521-63d70609706c.json` on ranseras1
-- **Cloudflared config:** `~/.cloudflared/antarok-config.yml` on ranseras1
-- **DNS:** CNAME `test` → `2f8e5f6f-2cba-49dc-8521-63d70609706c.cfargotunnel.com` in `lairallc.com` zone (Cloudflare dashboard — must be set manually; lairallc.com is not in the same CF account as the server cert)
+| `antarok-cloudflared` | `cloudflare/cloudflared:latest` | Cloudflare Tunnel; routes public hostname → app:8501 |
 
 ### Redeploy after code changes
 
 ```bash
-# From the local project directory
 rsync -av --exclude='env/' --exclude='__pycache__/' --exclude='.git/' --exclude='tests/' \
-  /home/mzsmith/Desktop/LAIRA/Projects/Antarok/mana-calculator/ \
-  mzsmith@192.168.12.65:~/antarok-mana-calculator/
+  <local-project-dir>/ <user>@<host>:<deploy-path>/
 
-ssh mzsmith@192.168.12.65 \
-  "cd ~/antarok-mana-calculator && docker compose build app && docker compose up -d"
+ssh <user>@<host> \
+  "cd <deploy-path> && docker compose build app && docker compose up -d"
 ```
 
 ### Container management
 
 ```bash
-# SSH into ranseras1 first
-ssh mzsmith@192.168.12.65
-
 # View status
-cd ~/antarok-mana-calculator && docker compose ps
+docker compose ps
 
 # View logs
 docker logs antarok-mana-app
@@ -129,4 +116,3 @@ app_ui.py                  # Streamlit UI — all tabs, sidebar, session state
 | **Macro system** | Medium | Removed from UI to reduce scope. Needs dedicated module + persistent storage (SQLite or external DB). Should expand multiple ledger entries from a single "cast" (e.g. Apparating = Frequency Up + Frequency Down). |
 | **Character persistence** | Low | Session state resets on page refresh. Could store character JSON to a file or DB per user. |
 | **Multi-character / party view** | Low | Useful for GMs tracking multiple characters at once. |
-| **lairallc.com Cloudflare consolidation** | Low | Currently lairallc.com DNS is managed separately from the server's CF account. Consolidating would allow `cloudflared tunnel route dns` to work without manual dashboard steps. |
