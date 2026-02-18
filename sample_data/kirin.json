@@ -1,0 +1,19 @@
+{
+  "_comment": "Kirin — Master mage. Pool = 2.00 (two Master Arcana). From the wiki example.",
+  "character": {
+    "name": "Kirin",
+    "highest_tier": "Master",
+    "arcana": [
+      {"name": "Draoidh", "tier": "Master"},
+      {"name": "Zephyr",  "tier": "Master"}
+    ]
+  },
+  "display_mode": "ones",
+  "total_pool": "2",
+  "remaining": "2",
+  "ledger": [],
+  "notes": [
+    "Wiki example: Kirin starts at 2 mana and casts 7 spells ending at 1.30 remaining.",
+    "Pool is exact: base_value(Master, Master) + base_value(Master, Master) = 1 + 1 = 2."
+  ]
+}

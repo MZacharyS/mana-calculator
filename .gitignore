@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.spec
+
+# Virtual environments
+env/
+venv/
+.venv/
+.env
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Secrets / credentials — never commit these
+*.pem
+*.json.key
+secrets/
+.secrets
+
+# Data files
+data/*.xlsx
+data/*.~lock.*
+
+# Streamlit
+.streamlit/secrets.toml

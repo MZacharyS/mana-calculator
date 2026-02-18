@@ -1,0 +1,23 @@
+{
+  "_comment": "Serapis — Master mage with Journeyman tertiary. Pool = 19/9 ≈ 2.11. From the wiki example.",
+  "character": {
+    "name": "Serapis",
+    "highest_tier": "Master",
+    "arcana": [
+      {"name": "Exodus", "tier": "Master"},
+      {"name": "Fathom", "tier": "Master"},
+      {"name": "Syphon", "tier": "Journeyman"}
+    ]
+  },
+  "display_mode": "ones",
+  "total_pool": "19/9",
+  "remaining": "19/9",
+  "ledger": [],
+  "notes": [
+    "Wiki example: Serapis starts at 2.11 mana (exact: 19/9) and casts 9 spells with",
+    "multiple efficient casts and Orders of Expression, ending at 0.04 remaining.",
+    "Pool derivation: base_value(Master, Master) = 1 (Exodus), 1 (Fathom),",
+    "  base_value(Master, Journeyman) = 1/3^2 = 1/9 (Syphon)",
+    "  Total = 1 + 1 + 1/9 = 19/9 = 2.1111... displayed as 2.11."
+  ]
+}

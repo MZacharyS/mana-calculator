@@ -1,0 +1,13 @@
+env/
+__pycache__/
+*.pyc
+*.pyo
+.git/
+.pytest_cache/
+tests/
+*.md
+*.xlsx
+.dockerignore
+Dockerfile
+docker-compose.yml
+sample_data/

@@ -1,0 +1,31 @@
+services:
+
+  app:
+    build: .
+    container_name: antarok-mana-app
+    restart: unless-stopped
+    networks:
+      - antarok-net
+    # Not exposed to host — cloudflared reaches it internally
+    expose:
+      - "8501"
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: antarok-cloudflared
+    restart: unless-stopped
+    # Run as the host user so it can read ~/.cloudflared (which is mode 700)
+    user: "1000:1000"
+    command: tunnel --config /etc/cloudflared/antarok-config.yml run
+    volumes:
+      # Mount host cloudflared credentials (login cert + tunnel JSON)
+      - ${HOME}/.cloudflared:/etc/cloudflared:ro
+    networks:
+      - antarok-net
+    depends_on:
+      app:
+        condition: service_healthy
+
+networks:
+  antarok-net:
+    driver: bridge
