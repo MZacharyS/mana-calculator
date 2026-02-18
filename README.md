@@ -1,15 +1,17 @@
 # Antarok Mana Calculator
 
-A mana-pool and spell-cost calculator for the **Antarok RPG** Arcana magic system.
+A mana pool and spell cost calculator for the **Antarok RPG** Arcana magic system.
 
-Built for the Antarok forums. Rules source: https://wiki.antarok.net/index.php/Arcana#Mana
+Built for the Antarok forum community. Rules source: https://wiki.antarok.net/index.php/Arcana#Mana
 
 ---
 
-## Quick Start
+## Quick Start (Local Dev)
 
 ```bash
-cd Projects/Antarok/mana-calculator
+# Create and activate a virtual environment
+python3 -m venv env
+source env/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
@@ -21,67 +23,78 @@ streamlit run app_ui.py
 pytest tests/ -v
 ```
 
+App runs at `http://localhost:8501`.
+
 ---
 
-## What It Does
+## Deployed Instance
+
+Live at **https://test.lairallc.com** — hosted on ranseras1 via Docker + Cloudflare Tunnel.
+
+See [STATUS.md](STATUS.md) for full deployment details and ops commands.
+
+---
+
+## Features
 
 | Feature | Status |
 |---|---|
-| Exact-fraction mana pool (no float drift) | ✅ |
-| Single-spell cost pipeline (base → efficiency → orders → ceil) | ✅ |
-| Hybrid spell cost (combined × 2/3) | ✅ |
-| Repeat/quantity (bundled vs per-cast rounding) | ✅ |
-| Situational modifiers (configurable insertion point) | ✅ |
-| Spreadsheet Compatibility Mode (ManaFormula.xlsx parity) | ✅ |
-| Display modes: ones / hundreds / fractions | ✅ |
-| Audit ledger with spell_name + arcana_name + spell_tier | ✅ |
-| JSON + CSV export | ✅ |
-| JSON import | ✅ |
-| Macros (Apparating = Freq Up + Freq Down built-in) | ✅ |
-| Custom macro builder | ✅ |
-| Sample characters (Kirin, Serapis) | ✅ |
+| Mana pool from arcana list (absolute tier values) | ✅ |
+| Single-spell cost: Standard, Efficient, Optimal, Inefficient, Strenuous | ✅ |
+| Hybrid spell cost (costA + costB) × 2/3 | ✅ |
+| Orders of Expression discount (5% per order, max 30%) | ✅ |
+| Situational modifiers (before or after order discount) | ✅ |
+| Quantity modes — bundled vs per-cast ceiling | ✅ |
+| Audit ledger with spell name, arcana, tier, running balance | ✅ |
+| Collapsible persistent ledger panel (visible across all tabs) | ✅ |
+| JSON export (audit-ready) + CSV export | ✅ |
+| JSON import / restore | ✅ |
+| Sample characters — Kirin (200 pool), Serapis (211 pool) | ✅ |
+| 91 unit tests — 100% passing | ✅ |
 
 ---
 
 ## Rules Engine
 
-### Tiers
+### Tier Values
 
-```
-Ascendant=5, Master=4, Expert=3, Journeyman=2, Apprentice=1, Novice=0
-```
+Mana values are absolute integers, not relative fractions:
 
-### Base Value Formula
+| Tier | Pool Value |
+|---|---|
+| Ascendant | 300 |
+| Master | 100 |
+| Expert | 33 |
+| Journeyman | 11 |
+| Apprentice | 4 |
+| Novice | 1 |
 
-```
-base_value(H, T) = 1 / 3^(H_index - T_index)
-```
+A character's total mana pool is the sum of each arcana's tier value.
 
-Examples for a **Master** character:
+**Example — Kirin** (Master Draoidh + Master Zephyr): 100 + 100 = **200**
+**Example — Serapis** (Master Exodus + Master Fathom + Journeyman Syphon): 100 + 100 + 11 = **211**
 
-| Spell Tier | Value | Decimal |
+### Spell Cost
+
+**Standard** spells cost the spell's own tier value.
+
+**Non-Standard** spells cost a multiplier of the tier *one step below* the spell tier:
+
+| Efficiency | Multiplier | Expert example (tier below = Journeyman = 11) |
 |---|---|---|
-| Master | 1/1 | 1.00 |
-| Expert | 1/3 | 0.34 (ceiled) |
-| Journeyman | 1/9 | 0.12 (ceiled) |
-| Apprentice | 1/27 | 0.04 (ceiled) |
-| Novice | 1/81 | 0.02 (ceiled) |
+| Efficient | 2× tier below | 22 |
+| Optimal | 1× tier below | 11 |
+| Inefficient | 4× tier below | 44 |
+| Strenuous | 5× tier below | 55 |
+| Standard | (tier value) | 33 |
 
-### Efficiency Multipliers
-
-| Type | Multiplier | Effect |
-|---|---|---|
-| Standard | ×1 | Full tier cost |
-| Optimal | ×1/3 | Very cheap |
-| Efficient | ×2/3 | Cheaper |
-| Inefficient | ×4/3 | More expensive |
-| Strenuous | ×5/3 | Very expensive |
+Novice spells use fixed values: Standard=1.0, Efficient=0.66, Optimal=0.33, Inefficient=1.33, Strenuous=1.66
 
 ### Orders of Expression
 
-Each order reduces cost by ~5%, capped at 30% (6th order):
+Each order reduces cost by 5%, capped at 30% at the 6th order:
 
-| Order | Discount |
+| Orders | Discount |
 |---|---|
 | 0 | 0% |
 | 1 | 5% |
@@ -91,47 +104,26 @@ Each order reduces cost by ~5%, capped at 30% (6th order):
 | 5 | 25% |
 | 6 | 30% |
 
-Configurable in `src/config.py`.
-
-### Cost Calculation (Order of Operations)
+### Cost Pipeline (Order of Operations)
 
 ```
-1. base            = base_value(highest_tier, spell_tier)
-2. after_eff       = base × efficiency_multiplier
-3. [optional]      = after_eff × situational_modifier   ← default position
-4. discount        = working × order_discount_fraction
-5. discounted      = working − discount
-6. total           = discounted × quantity              (bundled mode)
-7. final           = CEILING(total, 0.01)               (ones mode)
+1. base_cost       = tier value (Standard) OR mult × tier_below value (non-Standard)
+2. [situational]   = base_cost × modifier          ← "after_efficiency" position
+3. after_orders    = base_cost × (1 − order_discount)
+4. [situational]   = after_orders × modifier        ← "after_expression" position
+5. total           = after_orders × quantity         (bundled mode)
+                   = ceil(after_orders) × quantity   (per_cast mode)
+6. final           = ceiling(total, 0.01)
 ```
 
 ### Hybrid Spells
 
 ```
-cost_A   = base_A × eff_A
-cost_B   = base_B × eff_B
-combined = cost_A + cost_B
-hybrid   = combined × (2/3)        ← Efficient modifier on combined
-         → apply orders discount
-         → apply ceiling
+combined = get_base_cost(spell_A) + get_base_cost(spell_B)
+hybrid   = combined × (2/3)
+         → apply Orders of Expression discount
+         → apply ceiling to 2 decimal places
 ```
-
-### Spreadsheet Compatibility Mode
-
-Reproduces ManaFormula.xlsx with approximate integer tier values:
-
-| Tier | Value |
-|---|---|
-| Ascendant | 300 |
-| Master | 100 |
-| Expert | 33 |
-| Journeyman | 11 |
-| Apprentice | 4 |
-| Novice | 1 |
-
-Non-Standard efficiency cost = `MULT × value_of_tier_below`:
-- Efficient = 2×, Optimal = 1×, Inefficient = 4×, Strenuous = 5×
-- Novice fixed: Efficient=0.66, Optimal=0.33, Inefficient=1.33, Strenuous=1.66
 
 ---
 
@@ -139,18 +131,23 @@ Non-Standard efficiency cost = `MULT × value_of_tier_below`:
 
 ```
 mana-calculator/
-├── app_ui.py              # Streamlit UI entry point
+├── app_ui.py               # Streamlit UI — sidebar, tabs, ledger panel
 ├── requirements.txt
+├── Dockerfile
+├── docker-compose.yml
 ├── README.md
+├── STATUS.md               # Deployment status, ops commands, backlog
 ├── src/
-│   ├── config.py          # Tunable config (orders table, efficiency multipliers)
+│   ├── config.py           # Source of truth: TIER_VALUES, EFFICIENCY_BELOW_MULT,
+│   │                       #   NOVICE_EFFICIENCY_COSTS, ORDERS_OF_EXPRESSION
 │   └── engine/
-│       ├── tiers.py       # Tier enum, base_value()
-│       ├── rounding.py    # Ceiling helpers, format_cost(), format_pool()
-│       ├── calc_pool.py   # compute_pool()
-│       ├── calc_cast.py   # compute_cast_cost(), compute_cast_cost_with_quantity()
-│       ├── calc_hybrid.py # compute_hybrid_cost()
-│       └── spreadsheet_mode.py  # Spreadsheet compat
+│       ├── tiers.py        # Tier IntEnum, tier_from_name(), tier_value(), tier_below()
+│       ├── calc_pool.py    # compute_pool() → (total, breakdown)
+│       ├── calc_cast.py    # get_spell_base_cost(), compute_cast_cost(),
+│       │                   #   compute_cast_cost_with_quantity()
+│       ├── calc_hybrid.py  # compute_hybrid_cost()
+│       ├── rounding.py     # fmt_cost(), fmt_pool(), ceiling helpers
+│       └── spreadsheet_mode.py  # Legacy reference path (not exposed in UI)
 ├── tests/
 │   ├── conftest.py
 │   ├── test_tiers.py
@@ -159,23 +156,30 @@ mana-calculator/
 │   ├── test_hybrid.py
 │   └── test_spreadsheet.py
 ├── sample_data/
-│   ├── kirin.json         # Kirin character (2.00 pool)
-│   └── serapis.json       # Serapis character (2.11 pool = 19/9)
+│   ├── kirin.json          # Kirin — Master Draoidh + Master Zephyr (pool: 200)
+│   └── serapis.json        # Serapis — 2× Master + Journeyman Syphon (pool: 211)
 └── data/
-    └── ManaFormula.xlsx   # Original spreadsheet reference
+    └── ManaFormula.xlsx    # Original reference spreadsheet
 ```
 
 ---
 
-## Known Limitations / Next Steps
+## Configuration
 
-- **Kirin/Serapis spell sequences**: The exact spell-cast lists from the wiki examples
-  are not published. The pool totals are encoded as tests; the ledger sequences must
-  be added manually once the wiki details are available.
-- **Macros**: Custom macros are session-only; they reset on page reload.
-  Next step: persist macros in JSON alongside the character file.
-- **Rules updates**: If the Orders of Expression table or efficiency multipliers change,
-  update `src/config.py` — the engine and tests will pick up the changes automatically.
-- **Multi-character sessions**: Currently one character per session.
-- **Mageburn tracking**: The rules mention cast limits per highest-tier discipline.
-  This is not yet enforced by the engine (audit/warning only).
+All tunable values live in `src/config.py`. Changing a value there automatically propagates through the engine and tests — no other files need editing.
+
+Key constants:
+- `TIER_VALUES` — absolute integer value per tier name
+- `TIER_ORDER` — canonical tier ordering high → low
+- `EFFICIENCY_BELOW_MULT` — multipliers for non-Standard efficiencies
+- `NOVICE_EFFICIENCY_COSTS` — fixed cost overrides for Novice tier
+- `ORDERS_OF_EXPRESSION` — discount fractions keyed by order number (0–6)
+
+---
+
+## Pending / Future Work
+
+- **Macro system** — Removed from UI; planned as a dedicated module with persistent storage. Will expand a single macro entry (e.g. "Apparating") into multiple ledger entries automatically.
+- **Character persistence** — Session state resets on page refresh. Planned: save/load character JSON per user.
+- **Mageburn tracking** — Cast limits per highest-tier discipline exist in the rules but are not yet enforced by the engine.
+- **Multi-character / party view** — Useful for GMs running multiple characters simultaneously.
